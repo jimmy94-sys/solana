@@ -1,0 +1,37 @@
+import { useWalletConnection } from "@solana/react-hooks";
+import { usePortfolio } from "./portfolio";
+import { VaultCard } from "./VaultCard";
+
+const short = (value: string) => `${value.slice(0, 5)}…${value.slice(-5)}`;
+const format = (value: number) => new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 }).format(value);
+const explorer = (kind: "address" | "tx", id: string) => `https://explorer.solana.com/${kind}/${encodeURIComponent(id)}?cluster=devnet`;
+
+export default function App() {
+  const { connectors, connect, disconnect, wallet, status } = useWalletConnection();
+  const address = wallet?.account.address.toString();
+  const { snapshot, loading, error, reload } = usePortfolio(address);
+  const ready = snapshot && address;
+
+  return (
+    <div className="min-h-screen bg-[#0b1220] text-slate-100">
+      <div className="mx-auto max-w-6xl px-5 py-8 md:px-10">
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
+          <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-400 px-3 py-2 text-xl font-black text-slate-950">S</span><div><p className="text-lg font-semibold">Shim’s Solana Radar</p><p className="text-xs text-slate-400">Wallet intelligence · Devnet</p></div></div>
+          <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-300">● DEVNET · READ ONLY ANALYTICS</span>
+        </header>
+        <main className="space-y-7 py-9">
+          <div className="flex flex-wrap items-end justify-between gap-5"><div><p className="mb-2 text-xs font-semibold uppercase tracking-[.2em] text-emerald-300">Overview</p><h1 className="text-3xl font-bold tracking-tight md:text-5xl">Solana wallet intelligence.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-400">A starting point for tracing wallet activity across the Solana ecosystem. Inspect SOL, SPL tokens, Token-2022 assets and recent transactions on devnet.</p></div>{address && <button className="rounded-xl border border-white/20 px-4 py-2 text-sm hover:bg-white/10 disabled:opacity-50" onClick={reload} disabled={loading}>{loading ? "Refreshing…" : "↻ Refresh"}</button>}</div>
+          <section className="rounded-2xl border border-white/10 bg-[#151f30] p-5 md:p-7" aria-label="Wallet connection"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-semibold">Wallet connection</h2><p className="mt-1 text-sm text-slate-400">Connect a browser wallet set to devnet to inspect its accounts.</p></div>{address && <button onClick={() => disconnect()} className="rounded-lg border border-white/15 px-3 py-2 text-sm hover:bg-white/10">Disconnect</button>}</div>{address ? <a className="mt-5 inline-block break-all rounded-lg bg-white/5 px-4 py-3 font-mono text-sm text-emerald-300 hover:underline" href={explorer("address", address)} target="_blank" rel="noreferrer">{address} ↗</a> : <div className="mt-5 flex flex-wrap gap-3">{connectors.length ? connectors.map((connector) => <button key={connector.id} onClick={() => connect(connector.id)} disabled={status === "connecting"} className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-slate-950 hover:bg-emerald-300 disabled:opacity-50">{status === "connecting" ? "Connecting…" : `Connect ${connector.name}`}</button>) : <p className="text-sm text-amber-200">No compatible wallet detected. Install a Solana wallet extension, then refresh.</p>}</div>}</section>
+          {error && <div role="alert" className="rounded-xl border border-rose-400/30 bg-rose-400/10 p-4 text-sm text-rose-200">Could not load wallet: {error}. Check your RPC endpoint and try Refresh.</div>}
+          <div className="grid gap-4 md:grid-cols-3"><Stat label="SOL balance" value={ready ? `${format(snapshot.sol)} SOL` : "—"} foot="Wallet balance · devnet"/><Stat label="Token mints" value={ready ? String(snapshot.holdings.length) : "—"} foot="Nonzero SPL + Token-2022"/><Stat label="Recent transactions" value={ready ? String(snapshot.activity.length) : "—"} foot="Latest 12 signatures"/></div>
+          <div className="grid gap-5 lg:grid-cols-[1.15fr_.85fr]"><section className="overflow-hidden rounded-2xl border border-white/10 bg-[#151f30]"><div className="border-b border-white/10 p-5"><h2 className="text-lg font-semibold">Token holdings</h2><p className="mt-1 text-xs text-slate-400">Raw on-chain balances · no market prices</p></div>{ready && snapshot.holdings.length ? <div className="divide-y divide-white/10">{snapshot.holdings.map((item) => <div key={item.mint} className="flex items-center justify-between gap-4 px-5 py-4"><div className="min-w-0"><a href={explorer("address", item.mint)} target="_blank" rel="noreferrer" className="font-mono text-sm text-emerald-300 hover:underline">{short(item.mint)} ↗</a><p className="mt-1 text-xs text-slate-500">{item.program.startsWith("Tokenz") ? "Token-2022" : "SPL Token"} · {item.accounts} account{item.accounts === 1 ? "" : "s"}</p></div><span className="text-right font-mono text-sm tabular-nums">{format(item.amount)}</span></div>)}</div> : <Empty text={ready ? "No nonzero token balances in this wallet." : "Connect a wallet to see its tokens."}/>}</section><section className="overflow-hidden rounded-2xl border border-white/10 bg-[#151f30]"><div className="border-b border-white/10 p-5"><h2 className="text-lg font-semibold">Recent activity</h2><p className="mt-1 text-xs text-slate-400">Confirmed signatures · newest first</p></div>{ready && snapshot.activity.length ? <div className="divide-y divide-white/10">{snapshot.activity.map((item) => <a key={item.signature} href={explorer("tx", item.signature)} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-white/5"><div><span className="font-mono text-sm text-emerald-300">{short(item.signature)} ↗</span><p className="text-xs text-slate-500">{item.timestamp ? new Date(item.timestamp * 1000).toLocaleString() : `Slot ${item.slot}`}</p></div><span className={`text-xs ${item.error ? "text-rose-300" : "text-emerald-300"}`}>{item.error ? "Failed" : "Success"}</span></a>)}</div> : <Empty text={ready ? "No recent transactions found." : "Connect a wallet to see its activity."}/>}</section></div>
+          {ready && <p className="text-xs text-slate-500">Last updated {new Date(snapshot.fetchedAt).toLocaleTimeString()} · Values are on-chain quantities, not USD valuations or profit and loss.</p>}
+          <div className="[&>section]:!max-w-none"><VaultCard /></div>
+          <footer className="border-t border-white/10 pt-5 text-xs text-slate-500">Portfolio analytics built on the <a className="underline" href="https://github.com/solana-foundation/templates/tree/main/kit/react-vite-anchor" target="_blank" rel="noreferrer">Solana Foundation React/Vite/Anchor starter</a>. The vault is the starter's devnet example program. Use devnet funds only.</footer>
+        </main>
+      </div>
+    </div>
+  );
+}
+function Stat({ label, value, foot }: { label: string; value: string; foot: string }) { return <div className="rounded-2xl border border-white/10 bg-[#151f30] p-5"><p className="text-sm text-slate-400">{label}</p><p className="mt-4 break-all text-2xl font-bold tabular-nums">{value}</p><p className="mt-2 text-xs text-slate-500">{foot}</p></div>; }
+function Empty({ text }: { text: string }) { return <p className="p-7 text-sm text-slate-400">{text}</p>; }

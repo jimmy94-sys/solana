@@ -1,3 +1,11 @@
+# Shim’s Solana Radar
+
+A devnet wallet analytics project for SOL, SPL Token and Token-2022 balances, recent signatures, and the official starter’s Anchor vault example. [View the project and its setup instructions](solana-radar/README.md).
+
+The dashboard is built on the Solana Foundation React/Vite/Anchor starter and credits it in its own README.
+
+---
+
 # 🦀 awesome-solana v2 🚀 
 Awesome list of Solana links, updated recently and with more info than some other similar lists.
 
